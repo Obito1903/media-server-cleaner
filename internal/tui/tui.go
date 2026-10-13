@@ -304,21 +304,19 @@ func renderDetail(it *media.Item, now time.Time) string {
 	}
 	b.WriteString("\n")
 
-	fmt.Fprintf(&b, "Score %.1f / 100", it.Score)
+	fmt.Fprintf(&b, "Score %.1f", it.Score)
 	if it.Protected != "" {
 		fmt.Fprintf(&b, "  %s", protStyle.Render(fmt.Sprintf("PROTECTED: %s — raw score %.1f", it.Protected, it.RawScore)))
 	}
 	b.WriteString("\n\n")
 
-	b.WriteString(headStyle.Render("Score breakdown") + dimStyle.Render("  (higher = better deletion candidate)") + "\n")
-	var sum, maxSum float64
+	b.WriteString(headStyle.Render("Score breakdown") + dimStyle.Render("  (points = factor × weight; higher = better deletion candidate)") + "\n")
+	var sum float64
 	for _, f := range it.Factors {
-		fmt.Fprintf(&b, "  %-21s %5.1f/%-4.0f  %s\n", f.Name, f.Points, f.Max, dimStyle.Render(f.Calc))
+		fmt.Fprintf(&b, "  %-21s %6.1f  %s\n", f.Name, f.Points, dimStyle.Render(f.Calc))
 		sum += f.Points
-		maxSum += f.Max
 	}
-	fmt.Fprintf(&b, "  %-21s %5.1f/%-4.0f  %s\n\n", "Total", sum, maxSum,
-		dimStyle.Render(fmt.Sprintf("normalized: %.1f / %.0f × 100 = %.1f", sum, maxSum, it.RawScore)))
+	fmt.Fprintf(&b, "  %-21s %6.1f\n\n", "Total", sum)
 
 	b.WriteString(headStyle.Render("Viewers") + "\n")
 	if len(it.Users) == 0 {

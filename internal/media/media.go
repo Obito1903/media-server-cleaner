@@ -44,7 +44,7 @@ type Request struct {
 type Factor struct {
 	Name   string
 	Points float64
-	Max    float64
+	Weight float64
 	Calc   string
 }
 

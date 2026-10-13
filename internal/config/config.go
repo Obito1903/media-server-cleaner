@@ -52,7 +52,7 @@ func Load() (Config, error) {
 		"WEIGHT_AGE":           &c.Scoring.WAge,
 		"STALE_DAYS":           &c.Scoring.StaleDays,
 		"GRACE_DAYS":           &c.Scoring.GraceDays,
-		"SIZE_CAP_GB":          &c.Scoring.SizeCapGB,
+		"SIZE_REF_GB":          &c.Scoring.SizeRefGB,
 	}
 	for name, dst := range floats {
 		v := os.Getenv(name)

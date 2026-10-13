@@ -19,9 +19,9 @@ type Params struct {
 	WSize         float64
 	WAge          float64
 
-	StaleDays float64 // days of inactivity/age considered "fully stale"
+	StaleDays float64 // days of inactivity/age worth 1× the factor weight (no cap)
 	GraceDays float64 // items added/requested/played within this window are protected
-	SizeCapGB float64 // size at which the size factor maxes out
+	SizeRefGB float64 // size worth 1× the size weight (no cap)
 }
 
 func DefaultParams() Params {
@@ -34,11 +34,9 @@ func DefaultParams() Params {
 		WAge:          10,
 		StaleDays:     365,
 		GraceDays:     30,
-		SizeCapGB:     50,
+		SizeRefGB:     50,
 	}
 }
-
-func clamp01(v float64) float64 { return math.Max(0, math.Min(1, v)) }
 
 func Score(it *media.Item, p Params, now time.Time) {
 	it.Factors = it.Factors[:0]
@@ -46,7 +44,7 @@ func Score(it *media.Item, p Params, now time.Time) {
 		it.Factors = append(it.Factors, media.Factor{
 			Name:   name,
 			Points: w * frac,
-			Max:    w,
+			Weight: w,
 			Calc:   fmt.Sprintf("%s → %.2f × %.0f", calc, frac, w),
 		})
 	}
@@ -55,12 +53,12 @@ func Score(it *media.Item, p Params, now time.Time) {
 
 	// Last activity: time since last play, or since added if never played.
 	if it.LastPlayed.IsZero() {
-		add("Last activity", p.WLastActivity, clamp01(addedDays/p.StaleDays),
-			fmt.Sprintf("never played, added %.0fd ago: min(%.0f/%.0f, 1)", addedDays, addedDays, p.StaleDays))
+		add("Last activity", p.WLastActivity, addedDays/p.StaleDays,
+			fmt.Sprintf("never played, added %.0fd ago: %.0f/%.0f", addedDays, addedDays, p.StaleDays))
 	} else {
 		d := media.DaysSince(it.LastPlayed, now)
-		add("Last activity", p.WLastActivity, clamp01(d/p.StaleDays),
-			fmt.Sprintf("last played %.0fd ago: min(%.0f/%.0f, 1)", d, d, p.StaleDays))
+		add("Last activity", p.WLastActivity, d/p.StaleDays,
+			fmt.Sprintf("last played %.0fd ago: %.0f/%.0f", d, d, p.StaleDays))
 	}
 
 	// Watches: full-watch equivalents (episode plays / episode count for shows).
@@ -104,19 +102,15 @@ func Score(it *media.Item, p Params, now time.Time) {
 
 	// Size.
 	gb := float64(it.SizeBytes) / (1 << 30)
-	add("Size", p.WSize, clamp01(gb/p.SizeCapGB), fmt.Sprintf("%.1f GiB: min(%.1f/%.0f, 1)", gb, gb, p.SizeCapGB))
+	add("Size", p.WSize, gb/p.SizeRefGB, fmt.Sprintf("%.1f GiB: %.1f/%.0f", gb, gb, p.SizeRefGB))
 
 	// Age in library.
-	add("Age in library", p.WAge, clamp01(addedDays/p.StaleDays),
-		fmt.Sprintf("added %.0fd ago: min(%.0f/%.0f, 1)", addedDays, addedDays, p.StaleDays))
+	add("Age in library", p.WAge, addedDays/p.StaleDays,
+		fmt.Sprintf("added %.0fd ago: %.0f/%.0f", addedDays, addedDays, p.StaleDays))
 
-	var raw, max float64
+	var raw float64
 	for _, f := range it.Factors {
 		raw += f.Points
-		max += f.Max
-	}
-	if max > 0 {
-		raw = raw / max * 100
 	}
 	it.RawScore = raw
 	it.Score = raw
